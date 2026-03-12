@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Sales Visualizations</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0d1117;
+  --ink2:#141b27;
+  --ink3:#1c2535;
+  --ink4:#263044;
+  --gold:#e8b84b;
+  --gold2:#f5d27a;
+  --cyan:#38d9c0;
+  --rose:#f06080;
+  --slate:#8fa3be;
+  --text:#dce7f3;
+  --text2:#8fa3be;
+  --border:rgba(143,163,190,.12);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:'DM Sans',sans-serif;
+  background:var(--ink);
+  color:var(--text);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* grain overlay */
+body::before{
+  content:'';
+  position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.4;
+}
+
+/* ── Header ── */
+header{
+  position:relative;z-index:2;
+  padding:40px 48px 0;
+  display:flex;align-items:flex-end;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  padding-bottom:24px;
+}
+.header-left{}
+.eyebrow{
+  font-family:'DM Mono',monospace;
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--gold);margin-bottom:8px;
+}
+h1{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(28px,4vw,42px);
+  font-weight:900;
+  line-height:1.05;
+  color:var(--text);
+}
+h1 span{color:var(--gold);}
+.header-meta{
+  font-family:'DM Mono',monospace;
+  font-size:11px;color:var(--text2);
+  text-align:right;line-height:1.8;
+}
+.status-dot{
+  display:inline-block;width:6px;height:6px;
+  border-radius:50%;background:var(--cyan);
+  margin-right:6px;animation:pulse 2s infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* ── Main grid ── */
+main{
+  position:relative;z-index:1;
+  padding:36px 48px 60px;
+  display:grid;
+  grid-template-columns:repeat(12,1fr);
+  gap:20px;
+}
+
+/* ── Panel base ── */
+.panel{
+  background:var(--ink2);
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:24px 26px;
+  position:relative;overflow:hidden;
+  animation:fadeUp .6s ease both;
+}
+.panel::after{
+  content:'';
+  position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.025) 0%,transparent 60%);
+  pointer-events:none;border-radius:inherit;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.panel:nth-child(1){animation-delay:.05s}
+.panel:nth-child(2){animation-delay:.1s}
+.panel:nth-child(3){animation-delay:.15s}
+.panel:nth-child(4){animation-delay:.2s}
+.panel:nth-child(5){animation-delay:.25s}
+.panel:nth-child(6){animation-delay:.3s}
+.panel:nth-child(7){animation-delay:.35s}
+
+.panel-label{
+  font-family:'DM Mono',monospace;
+  font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--text2);margin-bottom:14px;
+  display:flex;align-items:center;gap:8px;
+}
+.panel-label::before{
+  content:'';display:inline-block;
+  width:16px;height:1px;background:var(--gold);
+}
+
+/* ── KPI cards ── */
+.kpi-row{ grid-column:span 12; display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
+.kpi{
+  background:var(--ink3);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:22px 24px;
+  position:relative;overflow:hidden;
+  animation:fadeUp .5s ease both;
+  cursor:default;
+  transition:border-color .2s,transform .2s;
+}
+.kpi:hover{border-color:rgba(232,184,75,.35);transform:translateY(-2px)}
+.kpi::before{
+  content:'';position:absolute;
+  top:0;left:0;right:0;height:2px;
+  background:var(--kpi-accent,var(--gold));
+}
+.kpi-icon{
+  font-size:18px;margin-bottom:12px;
+  display:flex;align-items:center;
+}
+.kpi-num{
+  font-family:'DM Mono',monospace;
+  font-size:clamp(22px,2.5vw,30px);
+  font-weight:500;
+  color:var(--kpi-accent,var(--gold));
+  letter-spacing:-.02em;
+  line-height:1;
+  margin-bottom:6px;
+}
+.kpi-title{font-size:12px;color:var(--text2);margin-bottom:4px;}
+.kpi-sub{
+  font-family:'DM Mono',monospace;
+  font-size:10px;color:var(--text2);
+}
+.kpi-badge{
+  display:inline-flex;align-items:center;gap:3px;
+  font-family:'DM Mono',monospace;font-size:10px;font-weight:500;
+  padding:2px 8px;border-radius:20px;margin-right:4px;
+}
+.up{background:rgba(56,217,192,.12);color:var(--cyan);}
+.dn{background:rgba(240,96,128,.12);color:var(--rose);}
+
+/* Grid spans */
+.span-7{grid-column:span 7}
+.span-5{grid-column:span 5}
+.span-6{grid-column:span 6}
+
+.chart-wrap{position:relative;width:100%;}
+.h260{height:260px}
+.h300{height:300px}
+.h340{height:340px}
+
+/* ── Map ── */
+#mapSvg{width:100%;height:auto;display:block;}
+.state-path{
+  fill:var(--ink4);stroke:var(--ink);stroke-width:1.5;
+  transition:fill .25s;cursor:default;
+}
+.state-active{fill:var(--state-color);}
+.state-path:hover .state-active{opacity:.85;}
+.map-bubble{
+  fill:var(--bubble-color,var(--gold));
+  opacity:.75;
+  animation:bubblePop .5s ease both;
+}
+@keyframes bubblePop{from{r:0;opacity:0}to{opacity:.75}}
+.map-label{
+  font-family:'DM Mono',monospace;
+  font-size:9px;fill:#fff;
+  text-anchor:middle;dominant-baseline:middle;
+  pointer-events:none;font-weight:500;
+}
+.map-tooltip{
+  position:absolute;background:var(--ink3);
+  border:1px solid var(--border);border-radius:7px;
+  padding:10px 14px;font-size:12px;pointer-events:none;
+  display:none;z-index:10;min-width:130px;
+}
+.map-tooltip strong{font-family:'DM Mono',monospace;color:var(--gold);font-size:13px;}
+
+/* ── Legend ── */
+.legend{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:10px;}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2);}
+.legend-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0;}
+
+/* ── Divider line ── */
+.chart-divider{
+  grid-column:span 12;
+  height:1px;background:var(--border);
+  position:relative;
+}
+.chart-divider::after{
+  content:'';position:absolute;left:0;top:0;
+  width:60px;height:1px;background:var(--gold);
+}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--ink)}
+::-webkit-scrollbar-thumb{background:var(--ink4);border-radius:3px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <p class="eyebrow">Sales Analytics · 2020 – 2025</p>
+    <h1>Performance<br><span>Intelligence</span></h1>
+  </div>
+  <div class="header-meta">
+    <p><span class="status-dot"></span>Live dataset</p>
+    <p>1,194 orders · 6 states</p>
+    <p>3 categories · 12 sub-categories</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── KPI CARDS ── -->
+  <div class="kpi-row">
+    <div class="kpi" style="--kpi-accent:#e8b84b;animation-delay:.05s">
+      <div class="kpi-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#e8b84b" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+      </div>
+      <p class="kpi-title">Total Revenue</p>
+      <p class="kpi-num" id="knum1">$0</p>
+      <p class="kpi-sub"><span class="kpi-badge up">▲ 26%</span>profit margin</p>
+    </div>
+    <div class="kpi" style="--kpi-accent:#38d9c0;animation-delay:.1s">
+      <div class="kpi-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38d9c0" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+      </div>
+      <p class="kpi-title">Total Profit</p>
+      <p class="kpi-num" id="knum2">$0</p>
+      <p class="kpi-sub"><span class="kpi-badge up">26.0%</span>margin rate</p>
+    </div>
+    <div class="kpi" style="--kpi-accent:#a78bfa;animation-delay:.15s">
+      <div class="kpi-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </div>
+      <p class="kpi-title">Total Orders</p>
+      <p class="kpi-num" id="knum3" style="color:#a78bfa">0</p>
+      <p class="kpi-sub"><span class="kpi-badge up">$5,176</span>avg / order</p>
+    </div>
+    <div class="kpi" style="--kpi-accent:#f06080;animation-delay:.2s">
+      <div class="kpi-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f06080" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+      </div>
+      <p class="kpi-title">Customers Served</p>
+      <p class="kpi-num" id="knum4" style="color:#f06080">0</p>
+      <p class="kpi-sub"><span class="kpi-badge up">6</span>states nationwide</p>
+    </div>
+  </div>
+
+  <!-- ── REVENUE TREND ── -->
+  <div class="panel span-7">
+    <p class="panel-label">Revenue Trend · 2020–2025</p>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e8b84b"></div>Revenue</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#38d9c0"></div>Profit</div>
+    </div>
+    <div class="chart-wrap h300"><canvas id="trendChart"></canvas></div>
+  </div>
+
+  <!-- ── REGION MAP ── -->
+  <div class="panel span-5" style="position:relative;">
+    <p class="panel-label">Region Sales Map</p>
+    <div id="mapTooltip" class="map-tooltip"></div>
+    <svg id="mapSvg" viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#1c2535"/>
+          <stop offset="100%" stop-color="#141b27"/>
+        </radialGradient>
+      </defs>
+      <rect width="960" height="600" fill="url(#bgGrad)" rx="8"/>
+
+      <!-- simplified state outlines – all 48 contig states as rough paths -->
+      <!-- WA --><path class="state-path" d="M90,60 L200,60 L210,120 L170,130 L80,110 Z"/>
+      <!-- OR --><path class="state-path" d="M80,130 L180,130 L185,210 L75,215 Z"/>
+      <!-- CA --><path class="state-path" id="st-CA" d="M60,215 L180,215 L195,370 L80,400 L50,330 Z"/>
+      <!-- NV --><path class="state-path" d="M185,200 L260,190 L275,330 L195,375 Z"/>
+      <!-- ID --><path class="state-path" d="M200,65 L280,70 L270,190 L210,185 Z"/>
+      <!-- MT --><path class="state-path" d="M210,35 L380,35 L385,95 L280,100 L200,95 Z"/>
+      <!-- WY --><path class="state-path" d="M285,105 L390,100 L395,185 L285,190 Z"/>
+      <!-- UT --><path class="state-path" d="M255,200 L330,195 L335,290 L260,295 Z"/>
+      <!-- AZ --><path class="state-path" d="M185,380 L280,375 L285,460 L175,465 Z"/>
+      <!-- NM --><path class="state-path" d="M285,300 L365,295 L370,410 L280,415 Z"/>
+      <!-- CO --><path class="state-path" d="M290,195 L395,190 L400,280 L290,285 Z"/>
+      <!-- ND --><path class="state-path" d="M385,40 L490,40 L490,100 L385,100 Z"/>
+      <!-- SD --><path class="state-path" d="M385,105 L490,105 L490,175 L385,175 Z"/>
+      <!-- NE --><path class="state-path" d="M390,180 L495,180 L495,235 L390,235 Z"/>
+      <!-- KS --><path class="state-path" d="M390,240 L498,238 L500,295 L390,295 Z"/>
+      <!-- OK --><path class="state-path" d="M393,300 L503,296 L510,355 L440,358 L390,335 Z"/>
+      <!-- TX --><path class="state-path" id="st-TX" d="M370,360 L510,355 L530,450 L440,500 L340,490 L310,420 Z"/>
+      <!-- MN --><path class="state-path" d="M495,38 L570,40 L575,130 L500,135 Z"/>
+      <!-- IA --><path class="state-path" d="M498,140 L578,138 L580,195 L498,198 Z"/>
+      <!-- MO --><path class="state-path" d="M502,202 L585,198 L590,275 L502,278 Z"/>
+      <!-- AR --><path class="state-path" d="M505,280 L590,278 L592,340 L505,342 Z"/>
+      <!-- LA --><path class="state-path" d="M508,345 L594,342 L590,400 L508,405 Z"/>
+      <!-- WI --><path class="state-path" d="M500,40 L575,40 L580,105 L502,108 Z"/>
+      <!-- IL --><path class="state-path" id="st-IL" d="M576,108 L615,105 L618,215 L575,218 Z"/>
+      <!-- MI (lower) --><path class="state-path" d="M618,80 L680,78 L685,155 L618,158 Z"/>
+      <!-- IN --><path class="state-path" d="M618,160 L665,158 L668,220 L618,222 Z"/>
+      <!-- OH --><path class="state-path" id="st-OH" d="M666,110 L730,108 L735,210 L666,214 Z"/>
+      <!-- KY --><path class="state-path" d="M580,222 L730,216 L728,265 L578,270 Z"/>
+      <!-- TN --><path class="state-path" d="M580,272 L730,268 L728,310 L578,314 Z"/>
+      <!-- MS --><path class="state-path" d="M580,316 L638,314 L640,395 L578,398 Z"/>
+      <!-- AL --><path class="state-path" d="M640,316 L694,314 L696,398 L638,400 Z"/>
+      <!-- GA --><path class="state-path" d="M694,260 L755,258 L758,400 L695,402 Z"/>
+      <!-- FL --><path class="state-path" id="st-FL" d="M700,402 L760,398 L790,460 L740,510 L680,480 L700,430 Z"/>
+      <!-- SC --><path class="state-path" d="M755,260 L808,255 L810,310 L755,315 Z"/>
+      <!-- NC --><path class="state-path" d="M730,218 L845,212 L848,258 L728,266 Z"/>
+      <!-- VA --><path class="state-path" d="M730,168 L845,160 L848,215 L730,220 Z"/>
+      <!-- WV --><path class="state-path" d="M730,160 L780,158 L782,218 L730,222 Z"/>
+      <!-- PA --><path class="state-path" d="M735,108 L845,104 L848,162 L735,166 Z"/>
+      <!-- NY --><path class="state-path" id="st-NY" d="M735,55 L870,50 L868,108 L735,112 Z"/>
+      <!-- ME --><path class="state-path" d="M870,35 L920,33 L918,90 L868,92 Z"/>
+      <!-- NH+VT --><path class="state-path" d="M848,50 L875,48 L873,108 L846,110 Z"/>
+      <!-- MA+RI+CT --><path class="state-path" d="M848,108 L900,105 L902,140 L846,143 Z"/>
+      <!-- NJ+DE+MD --><path class="state-path" d="M845,140 L895,138 L893,180 L843,183 Z"/>
+
+      <!-- Active state highlights -->
+      <path id="hl-NY" class="state-path state-active" style="--state-color:rgba(232,184,75,.55)" d="M735,55 L870,50 L868,108 L735,112 Z"/>
+      <path id="hl-FL" class="state-path state-active" style="--state-color:rgba(56,217,192,.5)" d="M700,402 L760,398 L790,460 L740,510 L680,480 L700,430 Z"/>
+      <path id="hl-CA" class="state-path state-active" style="--state-color:rgba(167,139,250,.5)" d="M60,215 L180,215 L195,370 L80,400 L50,330 Z"/>
+      <path id="hl-TX" class="state-path state-active" style="--state-color:rgba(240,96,128,.45)" d="M370,360 L510,355 L530,450 L440,500 L340,490 L310,420 Z"/>
+      <path id="hl-IL" class="state-path state-active" style="--state-color:rgba(251,191,36,.45)" d="M576,108 L615,105 L618,215 L575,218 Z"/>
+      <path id="hl-OH" class="state-path state-active" style="--state-color:rgba(99,202,231,.4)" d="M666,110 L730,108 L735,210 L666,214 Z"/>
+
+      <!-- Revenue bubbles -->
+      <circle class="map-bubble" cx="800" cy="80" r="28" style="--bubble-color:#e8b84b" data-state="New York" data-rev="$1.13M" data-orders="226"/>
+      <circle class="map-bubble" cx="735" cy="445" r="27" style="--bubble-color:#38d9c0;animation-delay:.1s" data-state="Florida" data-rev="$1.09M" data-orders="200"/>
+      <circle class="map-bubble" cx="120" cy="290" r="27" style="--bubble-color:#a78bfa;animation-delay:.2s" data-state="California" data-rev="$1.09M" data-orders="218"/>
+      <circle class="map-bubble" cx="430" cy="420" r="26" style="--bubble-color:#f06080;animation-delay:.3s" data-state="Texas" data-rev="$1.01M" data-orders="189"/>
+      <circle class="map-bubble" cx="596" cy="158" r="24" style="--bubble-color:#fbbf24;animation-delay:.4s" data-state="Illinois" data-rev="$978K" data-orders="181"/>
+      <circle class="map-bubble" cx="700" cy="158" r="23" style="--bubble-color:#63cae7;animation-delay:.5s" data-state="Ohio" data-rev="$885K" data-orders="180"/>
+
+      <!-- Bubble labels -->
+      <text class="map-label" x="800" y="80">NY</text>
+      <text class="map-label" x="735" y="445">FL</text>
+      <text class="map-label" x="120" y="290">CA</text>
+      <text class="map-label" x="430" y="420">TX</text>
+      <text class="map-label" x="596" y="158">IL</text>
+      <text class="map-label" x="700" y="158">OH</text>
+
+      <!-- Scale legend -->
+      <text x="30" y="575" font-family="DM Mono,monospace" font-size="9" fill="#8fa3be" letter-spacing=".1em">BUBBLE SIZE = REVENUE VOLUME</text>
+    </svg>
+    <!-- Map legend -->
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">
+      <div class="legend-item"><div class="legend-dot" style="background:#e8b84b;border-radius:50%"></div>New York $1.13M</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#38d9c0;border-radius:50%"></div>Florida $1.09M</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a78bfa;border-radius:50%"></div>California $1.09M</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f06080;border-radius:50%"></div>Texas $1.01M</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fbbf24;border-radius:50%"></div>Illinois $978K</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#63cae7;border-radius:50%"></div>Ohio $885K</div>
+    </div>
+  </div>
+
+  <!-- ── PRODUCT BAR CHART ── -->
+  <div class="panel span-6">
+    <p class="panel-label">Product Performance · Revenue vs Profit</p>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e8b84b"></div>Revenue</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#38d9c0"></div>Profit</div>
+    </div>
+    <div class="chart-wrap h340"><canvas id="prodChart"></canvas></div>
+  </div>
+
+  <!-- ── CATEGORY + PAYMENT ── -->
+  <div class="panel span-6">
+    <p class="panel-label">Category Split &amp; Payment Modes</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;height:340px;">
+      <div>
+        <p style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">By Category</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="catChart"></canvas></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;" id="catLeg"></div>
+      </div>
+      <div>
+        <p style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">Payment Mode</p>
+        <div class="chart-wrap" style="height:220px"><canvas id="payChart"></canvas></div>
+        <div style="margin-top:10px;display:flex;flex-direction:column;gap:5px;" id="payLeg"></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+/* ── DATA ── */
+const MONTHLY=[{m:"Mar'20",r:22991,p:6192},{m:"Apr'20",r:133385,p:36156},{m:"May'20",r:113287,p:24294},{m:"Jun'20",r:46900,p:9489},{m:"Jul'20",r:38556,p:12008},{m:"Aug'20",r:91117,p:27824},{m:"Sep'20",r:109434,p:29876},{m:"Oct'20",r:110836,p:24776},{m:"Nov'20",r:108170,p:29025},{m:"Dec'20",r:49951,p:14028},{m:"Jan'21",r:45780,p:12346},{m:"Feb'21",r:90167,p:22154},{m:"Mar'21",r:99845,p:26234},{m:"Apr'21",r:72623,p:19832},{m:"May'21",r:130254,p:34011},{m:"Jun'21",r:73482,p:18745},{m:"Jul'21",r:97335,p:27001},{m:"Aug'21",r:64723,p:15892},{m:"Sep'21",r:109434,p:29045},{m:"Oct'21",r:81234,p:21345},{m:"Nov'21",r:115002,p:31234},{m:"Dec'21",r:89234,p:23456},{m:"Jan'22",r:82543,p:17785},{m:"Feb'22",r:83716,p:23207},{m:"Mar'22",r:89337,p:19823},{m:"Apr'22",r:58800,p:15003},{m:"May'22",r:85001,p:19943},{m:"Jun'22",r:95765,p:22754},{m:"Jul'22",r:98226,p:25024},{m:"Aug'22",r:63143,p:19107},{m:"Sep'22",r:121660,p:33043},{m:"Oct'22",r:57836,p:14948},{m:"Nov'22",r:127483,p:34455},{m:"Dec'22",r:67628,p:19397},{m:"Jan'23",r:105044,p:28533},{m:"Feb'23",r:69499,p:18720},{m:"Mar'23",r:67040,p:14694},{m:"Apr'23",r:47399,p:10899},{m:"May'23",r:93760,p:24268},{m:"Jun'23",r:117413,p:33523},{m:"Jul'23",r:74870,p:19758},{m:"Aug'23",r:108133,p:29086},{m:"Sep'23",r:126861,p:35231},{m:"Oct'23",r:88896,p:25529},{m:"Nov'23",r:134078,p:32604},{m:"Dec'23",r:47645,p:9292},{m:"Jan'24",r:108414,p:25896},{m:"Feb'24",r:119216,p:36008},{m:"Mar'24",r:138052,p:34182},{m:"Apr'24",r:117494,p:28362},{m:"May'24",r:140745,p:36191},{m:"Jun'24",r:129944,p:36323},{m:"Jul'24",r:73384,p:20842},{m:"Aug'24",r:84624,p:23265},{m:"Sep'24",r:83105,p:21337},{m:"Oct'24",r:60976,p:15657},{m:"Nov'24",r:98879,p:20981},{m:"Dec'24",r:112906,p:38595},{m:"Jan'25",r:84712,p:28151},{m:"Feb'25",r:52198,p:13497}];
+
+const PRODUCTS=[{n:"Markers",r:627875,p:174749},{n:"Tables",r:625177,p:156796},{n:"Sofas",r:568367,p:142854},{n:"Printers",r:566359,p:146259},{n:"Elec. Games",r:565092,p:148454},{n:"Pens",r:552269,p:129846},{n:"Paper",r:524755,p:149723},{n:"Phones",r:503055,p:113607},{n:"Chairs",r:431964,p:122892},{n:"Laptops",r:419950,p:110260},{n:"Bookcases",r:413165,p:118000},{n:"Binders",r:384611,p:97257}];
+
+const CATS=[{l:"Office Supplies",v:2089510,c:"#e8b84b"},{l:"Electronics",v:2054456,c:"#38d9c0"},{l:"Furniture",v:2038673,c:"#a78bfa"}];
+const PAYS=[{l:"Debit Card",v:1395035},{l:"Credit Card",v:1281044},{l:"UPI",v:1250473},{l:"COD",v:1141790},{l:"EMI",v:1114297}];
+const PAY_COLS=["#e8b84b","#38d9c0","#a78bfa","#f06080","#63cae7"];
+
+/* ── KPI counter animation ── */
+function animCount(el, target, isMoney) {
+  let start = 0, duration = 1400, step = 16;
+  const steps = duration / step;
+  const inc = target / steps;
+  const timer = setInterval(() => {
+    start += inc;
+    if (start >= target) { start = target; clearInterval(timer); }
+    if (isMoney) {
+      const v = Math.round(start);
+      el.textContent = v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : '$'+(v/1e3).toFixed(0)+'K';
+    } else {
+      el.textContent = Math.round(start).toLocaleString();
+    }
+  }, step);
+}
+setTimeout(() => {
+  animCount(document.getElementById('knum1'), 6182639, true);
+  animCount(document.getElementById('knum2'), 1610697, true);
+  animCount(document.getElementById('knum3'), 1194, false);
+  animCount(document.getElementById('knum4'), 847, false);
+}, 300);
+
+/* ── Chart defaults ── */
+const tc = '#8fa3be', gc = 'rgba(143,163,190,.07)';
+Chart.defaults.color = tc;
+Chart.defaults.font.family = "'DM Mono', monospace";
+
+/* ── Revenue Trend ── */
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: MONTHLY.map(d => d.m),
+    datasets: [
+      {
+        label:'Revenue', data: MONTHLY.map(d => d.r),
+        borderColor:'#e8b84b', backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,300);
+          g.addColorStop(0,'rgba(232,184,75,.22)');
+          g.addColorStop(1,'rgba(232,184,75,0)');
+          return g;
+        },
+        fill:true, tension:.42, pointRadius:0, pointHoverRadius:6, borderWidth:2
+      },
+      {
+        label:'Profit', data: MONTHLY.map(d => d.p),
+        borderColor:'#38d9c0', backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,300);
+          g.addColorStop(0,'rgba(56,217,192,.12)');
+          g.addColorStop(1,'rgba(56,217,192,0)');
+          return g;
+        },
+        fill:true, tension:.42, pointRadius:0, pointHoverRadius:6, borderWidth:1.5
+      }
+    ]
+  },
+  options: {
+    responsive:true, maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#1c2535',borderColor:'rgba(143,163,190,.2)',borderWidth:1,
+        titleFont:{family:"'DM Mono',monospace",size:10},
+        bodyFont:{family:"'DM Mono',monospace",size:11},
+        callbacks:{ label: c => ` ${c.dataset.label}: $${(c.raw/1000).toFixed(0)}K` }
+      }
+    },
+    scales:{
+      x:{ ticks:{color:tc,font:{size:9},maxTicksLimit:10,maxRotation:30}, grid:{color:gc}, border:{color:'transparent'} },
+      y:{ ticks:{color:tc,font:{size:9},callback:v=>'$'+(v/1000).toFixed(0)+'K'}, grid:{color:gc}, border:{color:'transparent'} }
+    }
+  }
+});
+
+/* ── Product bar ── */
+new Chart(document.getElementById('prodChart'), {
+  type:'bar',
+  data:{
+    labels: PRODUCTS.map(d => d.n),
+    datasets:[
+      {label:'Revenue',data:PRODUCTS.map(d=>d.r),backgroundColor:'rgba(232,184,75,.8)',borderRadius:3,borderSkipped:false},
+      {label:'Profit',data:PRODUCTS.map(d=>d.p),backgroundColor:'rgba(56,217,192,.75)',borderRadius:3,borderSkipped:false}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    indexAxis:'y',
+    plugins:{
+      legend:{display:false},
+      tooltip:{
+        backgroundColor:'#1c2535',borderColor:'rgba(143,163,190,.2)',borderWidth:1,
+        callbacks:{ label: c=>' $'+(c.raw/1000).toFixed(0)+'K' }
+      }
+    },
+    scales:{
+      x:{ticks:{color:tc,font:{size:9},callback:v=>'$'+(v/1000).toFixed(0)+'K'},grid:{color:gc},border:{color:'transparent'}},
+      y:{ticks:{color:tc,font:{size:9,family:"'DM Sans',sans-serif"}},grid:{color:gc},border:{color:'transparent'}}
+    }
+  }
+});
+
+/* ── Category donut ── */
+const catTotal = CATS.reduce((s,c)=>s+c.v,0);
+new Chart(document.getElementById('catChart'),{
+  type:'doughnut',
+  data:{labels:CATS.map(c=>c.l),datasets:[{data:CATS.map(c=>c.v),backgroundColor:CATS.map(c=>c.c),borderWidth:0,hoverOffset:5}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${((c.raw/catTotal)*100).toFixed(1)}%`}}}}
+});
+document.getElementById('catLeg').innerHTML = CATS.map(c=>`<div class="legend-item" style="font-size:10px;"><div class="legend-dot" style="background:${c.c};border-radius:50%"></div>${c.l.split(' ')[0]} ${((c.v/catTotal)*100).toFixed(0)}%</div>`).join('');
+
+/* ── Payment donut ── */
+const payTotal = PAYS.reduce((s,p)=>s+p.v,0);
+new Chart(document.getElementById('payChart'),{
+  type:'doughnut',
+  data:{labels:PAYS.map(p=>p.l),datasets:[{data:PAYS.map(p=>p.v),backgroundColor:PAY_COLS,borderWidth:0,hoverOffset:5}]},
+  options:{responsive:true,maintainAspectRatio:false,cutout:'70%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${((c.raw/payTotal)*100).toFixed(1)}%`}}}}
+});
+document.getElementById('payLeg').innerHTML = PAYS.map((p,i)=>`<div class="legend-item" style="font-size:10px;"><div class="legend-dot" style="background:${PAY_COLS[i]};border-radius:50%"></div>${p.l} ${((p.v/payTotal)*100).toFixed(0)}%</div>`).join('');
+
+/* ── Map bubble tooltip ── */
+const tooltip = document.getElementById('mapTooltip');
+document.querySelectorAll('.map-bubble').forEach(b => {
+  b.addEventListener('mouseenter', e => {
+    tooltip.style.display='block';
+    tooltip.innerHTML=`<strong>${b.dataset.state}</strong><br>Revenue: ${b.dataset.rev}<br>Orders: ${b.dataset.orders}`;
+  });
+  b.addEventListener('mousemove', e => {
+    const rect = e.currentTarget.closest('svg').parentElement.getBoundingClientRect();
+    const svgRect = e.currentTarget.closest('svg').getBoundingClientRect();
+    tooltip.style.left = (e.clientX - svgRect.left + 12)+'px';
+    tooltip.style.top = (e.clientY - svgRect.top - 20)+'px';
+  });
+  b.addEventListener('mouseleave', () => tooltip.style.display='none');
+});
+</script>
+</body>
+</html>

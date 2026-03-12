@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Sales Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1f2e;
+    --surface: #242b3d;
+    --surface2: #2d3550;
+    --border: rgba(255,255,255,0.07);
+    --accent: #f2c811;
+    --accent2: #00b4d8;
+    --accent3: #f77f00;
+    --text: #e8eaf0;
+    --muted: #8892a4;
+    --green: #00c49a;
+    --red: #f05454;
+    --radius: 8px;
+  }
+
+  body {
+    font-family: 'Segoe UI', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .pbi-logo { display: flex; align-items: center; gap: 8px; }
+  .pbi-logo svg { width: 22px; height: 22px; }
+  .logo-text { font-size: 15px; font-weight: 600; color: var(--accent); letter-spacing: 0.02em; }
+  .report-title { font-size: 13px; color: var(--muted); padding-left: 12px; border-left: 1px solid var(--border); }
+  .topbar-right { display: flex; align-items: center; gap: 8px; }
+  .tb-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 12px; border-radius: 4px; font-size: 12px; cursor: pointer;
+    transition: all .15s;
+  }
+  .tb-btn:hover { background: var(--surface2); color: var(--text); }
+  .tb-btn.active { background: var(--accent); color: #1a1f2e; border-color: var(--accent); font-weight: 600; }
+
+  /* ── Filter bar ── */
+  .filterbar {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .filter-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+  .filter-group { display: flex; align-items: center; gap: 8px; }
+  .slicer-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: 4px; font-size: 12px; cursor: pointer;
+    transition: all .15s;
+  }
+  .slicer-btn:hover { border-color: var(--accent); color: var(--text); }
+  .slicer-btn.sel { background: var(--accent); color: #1a1f2e; border-color: var(--accent); font-weight: 600; }
+  .filter-sep { width: 1px; height: 20px; background: var(--border); }
+
+  /* ── Main layout ── */
+  .canvas {
+    padding: 20px 24px;
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+  }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: var(--card-accent, transparent);
+  }
+  .card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-title .icon { font-size: 13px; opacity: .7; }
+
+  /* KPI cards */
+  .kpi { grid-column: span 3; }
+  .kpi-value { font-size: 28px; font-weight: 700; line-height: 1; margin-bottom: 6px; }
+  .kpi-sub { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 5px; }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 3px; }
+  .badge.up { background: rgba(0,196,154,.15); color: var(--green); }
+  .badge.dn { background: rgba(240,84,84,.15); color: var(--red); }
+
+  /* Span helpers */
+  .col-6 { grid-column: span 6; }
+  .col-7 { grid-column: span 7; }
+  .col-5 { grid-column: span 5; }
+  .col-12 { grid-column: span 12; }
+  .col-4 { grid-column: span 4; }
+  .col-8 { grid-column: span 8; }
+
+  .chart-wrap { position: relative; width: 100%; }
+  .h220 { height: 220px; }
+  .h260 { height: 260px; }
+  .h300 { height: 300px; }
+
+  /* Region bars */
+  .region-bars { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+  .rbar-row { display: flex; flex-direction: column; gap: 3px; }
+  .rbar-label { display: flex; justify-content: space-between; font-size: 12px; }
+  .rbar-label span:last-child { color: var(--muted); }
+  .rbar-track { height: 6px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; }
+  .rbar-fill { height: 100%; border-radius: 3px; transition: width .8s ease; }
+
+  /* Payment table */
+  .pay-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+  .pay-table td { padding: 7px 6px; font-size: 12px; border-bottom: 1px solid var(--border); }
+  .pay-table tr:last-child td { border-bottom: none; }
+  .pay-table td:last-child { text-align: right; color: var(--muted); }
+  .pay-share { display: inline-block; height: 4px; background: var(--accent); border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+
+  /* Watermark */
+  .watermark {
+    text-align: center;
+    padding: 10px 0 20px;
+    font-size: 11px;
+    color: rgba(255,255,255,.15);
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<div class="topbar">
+  <div class="topbar-left">
+    <div class="pbi-logo">
+      <svg viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="9" width="4" height="12" rx="1" fill="#f2c811"/>
+        <rect x="7" y="5" width="4" height="16" rx="1" fill="#f2c811" opacity=".8"/>
+        <rect x="13" y="1" width="4" height="20" rx="1" fill="#f2c811" opacity=".6"/>
+        <rect x="17" y="7" width="4" height="14" rx="1" fill="#f2c811" opacity=".4"/>
+      </svg>
+      <span class="logo-text">Power BI</span>
+    </div>
+    <span class="report-title">Sales Performance Report</span>
+  </div>
+  <div class="topbar-right">
+    <button class="tb-btn active">Report</button>
+    <button class="tb-btn">Data</button>
+    <button class="tb-btn">Model</button>
+  </div>
+</div>
+
+<!-- ── Filter / Slicer bar ── -->
+<div class="filterbar">
+  <span class="filter-label">Category</span>
+  <div class="filter-group" id="cat-slicers">
+    <button class="slicer-btn sel" data-filter="cat" data-val="all">All</button>
+    <button class="slicer-btn" data-filter="cat" data-val="Electronics">Electronics</button>
+    <button class="slicer-btn" data-filter="cat" data-val="Furniture">Furniture</button>
+    <button class="slicer-btn" data-filter="cat" data-val="Office Supplies">Office Supplies</button>
+  </div>
+  <div class="filter-sep"></div>
+  <span class="filter-label">Year</span>
+  <div class="filter-group" id="yr-slicers">
+    <button class="slicer-btn sel" data-filter="yr" data-val="all">All</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2020">2020</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2021">2021</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2022">2022</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2023">2023</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2024">2024</button>
+    <button class="slicer-btn" data-filter="yr" data-val="2025">2025</button>
+  </div>
+</div>
+
+<!-- ── Dashboard Canvas ── -->
+<div class="canvas">
+
+  <!-- KPI Row -->
+  <div class="card kpi" style="--card-accent: #f2c811;">
+    <div class="card-title">Total Revenue <span class="icon">💰</span></div>
+    <div class="kpi-value" id="kpi-rev" style="color:#f2c811;">$6.18M</div>
+    <div class="kpi-sub"><span class="badge up">▲ 26%</span> profit margin</div>
+  </div>
+
+  <div class="card kpi" style="--card-accent: #00c49a;">
+    <div class="card-title">Total Profit <span class="icon">📈</span></div>
+    <div class="kpi-value" id="kpi-profit" style="color:#00c49a;">$1.61M</div>
+    <div class="kpi-sub"><span class="badge up">▲ 26.0%</span> margin rate</div>
+  </div>
+
+  <div class="card kpi" style="--card-accent: #00b4d8;">
+    <div class="card-title">Total Orders <span class="icon">📦</span></div>
+    <div class="kpi-value" id="kpi-orders" style="color:#00b4d8;">1,194</div>
+    <div class="kpi-sub"><span style="color:var(--muted)">avg</span>&nbsp;<span id="kpi-avg" style="font-weight:600;">$5,176</span>&nbsp;<span style="color:var(--muted)">/ order</span></div>
+  </div>
+
+  <div class="card kpi" style="--card-accent: #f77f00;">
+    <div class="card-title">Top Category <span class="icon">🏆</span></div>
+    <div class="kpi-value" id="kpi-topcat" style="color:#f77f00; font-size:18px; padding-top:4px;">Office Supplies</div>
+    <div class="kpi-sub"><span id="kpi-toprev" style="font-weight:600;">$2.09M</span>&nbsp;<span style="color:var(--muted)">revenue</span></div>
+  </div>
+
+  <!-- Monthly Revenue Trend -->
+  <div class="card col-8" style="--card-accent: #f2c811;">
+    <div class="card-title">Monthly Revenue &amp; Profit Trend <span class="icon">📊</span></div>
+    <div class="chart-wrap h260"><canvas id="monthlyChart"></canvas></div>
+  </div>
+
+  <!-- Category Donut -->
+  <div class="card col-4" style="--card-accent: #00b4d8;">
+    <div class="card-title">Revenue by Category</div>
+    <div class="chart-wrap h220"><canvas id="catChart"></canvas></div>
+    <div id="cat-legend" style="display:flex; flex-direction:column; gap:5px; margin-top:12px;"></div>
+  </div>
+
+  <!-- Top Products Bar -->
+  <div class="card col-7" style="--card-accent: #00c49a;">
+    <div class="card-title">Revenue by Sub-Category <span class="icon">📋</span></div>
+    <div class="chart-wrap h300"><canvas id="productChart"></canvas></div>
+  </div>
+
+  <!-- Region Performance -->
+  <div class="card col-5" style="--card-accent: #f77f00;">
+    <div class="card-title">Region-wise Performance <span class="icon">📍</span></div>
+    <div class="region-bars" id="regionBars"></div>
+  </div>
+
+  <!-- Payment Mode -->
+  <div class="card col-4" style="--card-accent: #f2c811;">
+    <div class="card-title">Payment Mode Split</div>
+    <div class="chart-wrap h220"><canvas id="payChart"></canvas></div>
+  </div>
+
+  <!-- Quarterly -->
+  <div class="card col-8" style="--card-accent: #00b4d8;">
+    <div class="card-title">Quarterly Revenue by Category</div>
+    <div class="chart-wrap h220"><canvas id="qtrChart"></canvas></div>
+  </div>
+
+</div>
+
+<div class="watermark">Sales Dashboard · Built with Power BI styling · Data: Sales_Dataset_Cleaned.csv</div>
+
+<script>
+/* ─── DATA ─── */
+const RAW_MONTHLY = [{"month":"2020-03","Revenue":22991,"Profit":6192},{"month":"2020-04","Revenue":133385,"Profit":36156},{"month":"2020-05","Revenue":113287,"Profit":24294},{"month":"2020-06","Revenue":46900,"Profit":9489},{"month":"2020-07","Revenue":38556,"Profit":12008},{"month":"2020-08","Revenue":91117,"Profit":27824},{"month":"2020-09","Revenue":109434,"Profit":29876},{"month":"2020-10","Revenue":110836,"Profit":24776},{"month":"2020-11","Revenue":108170,"Profit":29025},{"month":"2020-12","Revenue":49951,"Profit":14028},{"month":"2021-01","Revenue":45780,"Profit":12346},{"month":"2021-02","Revenue":90167,"Profit":22154},{"month":"2021-03","Revenue":99845,"Profit":26234},{"month":"2021-04","Revenue":72623,"Profit":19832},{"month":"2021-05","Revenue":130254,"Profit":34011},{"month":"2021-06","Revenue":73482,"Profit":18745},{"month":"2021-07","Revenue":97335,"Profit":27001},{"month":"2021-08","Revenue":64723,"Profit":15892},{"month":"2021-09","Revenue":109434,"Profit":29045},{"month":"2021-10","Revenue":81234,"Profit":21345},{"month":"2021-11","Revenue":115002,"Profit":31234},{"month":"2021-12","Revenue":89234,"Profit":23456},{"month":"2022-01","Revenue":82543,"Profit":17785},{"month":"2022-02","Revenue":83716,"Profit":23207},{"month":"2022-03","Revenue":89337,"Profit":19823},{"month":"2022-04","Revenue":58800,"Profit":15003},{"month":"2022-05","Revenue":85001,"Profit":19943},{"month":"2022-06","Revenue":95765,"Profit":22754},{"month":"2022-07","Revenue":98226,"Profit":25024},{"month":"2022-08","Revenue":63143,"Profit":19107},{"month":"2022-09","Revenue":121660,"Profit":33043},{"month":"2022-10","Revenue":57836,"Profit":14948},{"month":"2022-11","Revenue":127483,"Profit":34455},{"month":"2022-12","Revenue":67628,"Profit":19397},{"month":"2023-01","Revenue":105044,"Profit":28533},{"month":"2023-02","Revenue":69499,"Profit":18720},{"month":"2023-03","Revenue":67040,"Profit":14694},{"month":"2023-04","Revenue":47399,"Profit":10899},{"month":"2023-05","Revenue":93760,"Profit":24268},{"month":"2023-06","Revenue":117413,"Profit":33523},{"month":"2023-07","Revenue":74870,"Profit":19758},{"month":"2023-08","Revenue":108133,"Profit":29086},{"month":"2023-09","Revenue":126861,"Profit":35231},{"month":"2023-10","Revenue":88896,"Profit":25529},{"month":"2023-11","Revenue":134078,"Profit":32604},{"month":"2023-12","Revenue":47645,"Profit":9292},{"month":"2024-01","Revenue":108414,"Profit":25896},{"month":"2024-02","Revenue":119216,"Profit":36008},{"month":"2024-03","Revenue":138052,"Profit":34182},{"month":"2024-04","Revenue":117494,"Profit":28362},{"month":"2024-05","Revenue":140745,"Profit":36191},{"month":"2024-06","Revenue":129944,"Profit":36323},{"month":"2024-07","Revenue":73384,"Profit":20842},{"month":"2024-08","Revenue":84624,"Profit":23265},{"month":"2024-09","Revenue":83105,"Profit":21337},{"month":"2024-10","Revenue":60976,"Profit":15657},{"month":"2024-11","Revenue":98879,"Profit":20981},{"month":"2024-12","Revenue":112906,"Profit":38595},{"month":"2025-01","Revenue":84712,"Profit":28151},{"month":"2025-02","Revenue":52198,"Profit":13497}];
+
+const PRODUCTS = [{"Sub-Category":"Markers","Revenue":627875,"Profit":174749,"Orders":110},{"Sub-Category":"Tables","Revenue":625177,"Profit":156796,"Orders":122},{"Sub-Category":"Sofas","Revenue":568367,"Profit":142854,"Orders":114},{"Sub-Category":"Printers","Revenue":566359,"Profit":146259,"Orders":95},{"Sub-Category":"Electronic Games","Revenue":565092,"Profit":148454,"Orders":104},{"Sub-Category":"Pens","Revenue":552269,"Profit":129846,"Orders":114},{"Sub-Category":"Paper","Revenue":524755,"Profit":149723,"Orders":104},{"Sub-Category":"Phones","Revenue":503055,"Profit":113607,"Orders":101},{"Sub-Category":"Chairs","Revenue":431964,"Profit":122892,"Orders":83},{"Sub-Category":"Laptops","Revenue":419950,"Profit":110260,"Orders":88},{"Sub-Category":"Bookcases","Revenue":413165,"Profit":118000,"Orders":88},{"Sub-Category":"Binders","Revenue":384611,"Profit":97257,"Orders":71}];
+
+const REGIONS = [{"State":"New York","Revenue":1130048,"Profit":308506,"Orders":226},{"State":"Florida","Revenue":1091174,"Profit":308706,"Orders":200},{"State":"California","Revenue":1086436,"Profit":278814,"Orders":218},{"State":"Texas","Revenue":1011475,"Profit":257780,"Orders":189},{"State":"Illinois","Revenue":978738,"Profit":240372,"Orders":181},{"State":"Ohio","Revenue":884768,"Profit":216519,"Orders":180}];
+
+const CATEGORIES = [{"Category":"Office Supplies","Revenue":2089510,"Profit":551575},{"Category":"Electronics","Revenue":2054456,"Profit":518580},{"Category":"Furniture","Revenue":2038673,"Profit":540542}];
+
+const PAYMENT = [{"PaymentMode":"Debit Card","Revenue":1395035},{"PaymentMode":"Credit Card","Revenue":1281044},{"PaymentMode":"UPI","Revenue":1250473},{"PaymentMode":"COD","Revenue":1141790},{"PaymentMode":"EMI","Revenue":1114297}];
+
+const CAT_COLORS = {'Electronics':'#f2c811','Furniture':'#00b4d8','Office Supplies':'#00c49a'};
+const PROD_CATS = {
+  'Markers':'Office Supplies','Pens':'Office Supplies','Paper':'Office Supplies','Binders':'Office Supplies',
+  'Tables':'Furniture','Sofas':'Furniture','Chairs':'Furniture','Bookcases':'Furniture',
+  'Printers':'Electronics','Electronic Games':'Electronics','Phones':'Electronics','Laptops':'Electronics'
+};
+
+let activeFilters = { cat: 'all', yr: 'all' };
+let charts = {};
+
+function fmt(n) {
+  if (n >= 1e6) return '$' + (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return '$' + (n/1e3).toFixed(0) + 'K';
+  return '$' + n.toLocaleString();
+}
+
+function filterMonthly() {
+  let data = RAW_MONTHLY;
+  if (activeFilters.yr !== 'all') data = data.filter(d => d.month.startsWith(activeFilters.yr));
+  return data;
+}
+
+function filterProducts() {
+  let data = PRODUCTS;
+  if (activeFilters.cat !== 'all') data = data.filter(d => PROD_CATS[d['Sub-Category']] === activeFilters.cat);
+  return data;
+}
+
+function filterCategories() {
+  let data = CATEGORIES;
+  if (activeFilters.cat !== 'all') data = data.filter(d => d.Category === activeFilters.cat);
+  return data;
+}
+
+/* ─── KPIs ─── */
+function updateKPIs() {
+  const m = filterMonthly();
+  const p = filterProducts();
+  const rev = p.reduce((s,d) => s + d.Revenue, 0);
+  const profit = p.reduce((s,d) => s + d.Profit, 0);
+  const orders = p.reduce((s,d) => s + d.Orders, 0);
+  document.getElementById('kpi-rev').textContent = fmt(rev);
+  document.getElementById('kpi-profit').textContent = fmt(profit);
+  document.getElementById('kpi-orders').textContent = orders.toLocaleString();
+  document.getElementById('kpi-avg').textContent = orders ? fmt(Math.round(rev/orders)) : '$0';
+  const cats = filterCategories();
+  const top = cats.sort((a,b) => b.Revenue - a.Revenue)[0];
+  if (top) {
+    document.getElementById('kpi-topcat').textContent = top.Category;
+    document.getElementById('kpi-toprev').textContent = fmt(top.Revenue);
+  }
+}
+
+/* ─── Monthly Chart ─── */
+function buildMonthly() {
+  const d = filterMonthly();
+  const labels = d.map(x => { const p = x.month.split('-'); return p[1]+'/'+p[0].slice(2); });
+  const rev = d.map(x => x.Revenue);
+  const prof = d.map(x => x.Profit);
+  if (charts.monthly) charts.monthly.destroy();
+  charts.monthly = new Chart(document.getElementById('monthlyChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Revenue', data: rev, borderColor: '#f2c811', backgroundColor: 'rgba(242,200,17,.08)', fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 },
+        { label: 'Profit', data: prof, borderColor: '#00c49a', backgroundColor: 'rgba(0,196,154,.06)', fill: true, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, borderWidth: 2 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } } },
+      scales: {
+        x: { ticks: { color:'#8892a4', font:{size:10}, maxTicksLimit:12, maxRotation:45 }, grid:{color:'rgba(255,255,255,.04)'} },
+        y: { ticks: { color:'#8892a4', font:{size:10}, callback: v => '$'+(v/1000).toFixed(0)+'K' }, grid:{color:'rgba(255,255,255,.04)'} }
+      }
+    }
+  });
+}
+
+/* ─── Category Donut ─── */
+function buildCat() {
+  const cats = filterCategories();
+  const total = cats.reduce((s,c) => s + c.Revenue, 0);
+  if (charts.cat) charts.cat.destroy();
+  charts.cat = new Chart(document.getElementById('catChart'), {
+    type: 'doughnut',
+    data: {
+      labels: cats.map(c => c.Category),
+      datasets: [{ data: cats.map(c => c.Revenue), backgroundColor: cats.map(c => CAT_COLORS[c.Category] || '#888'), borderWidth: 0, hoverOffset: 6 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } } }
+    }
+  });
+  const leg = document.getElementById('cat-legend');
+  leg.innerHTML = cats.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;font-size:11px;"><span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:2px;background:${CAT_COLORS[c.Category]};flex-shrink:0;"></span><span style="color:#8892a4;">${c.Category}</span></span><span style="font-weight:600;">${((c.Revenue/total)*100).toFixed(1)}%</span></div>`).join('');
+}
+
+/* ─── Products Bar ─── */
+function buildProducts() {
+  const p = filterProducts().slice(0,10);
+  if (charts.prod) charts.prod.destroy();
+  charts.prod = new Chart(document.getElementById('productChart'), {
+    type: 'bar',
+    data: {
+      labels: p.map(x => x['Sub-Category']),
+      datasets: [
+        { label: 'Revenue', data: p.map(x => x.Revenue), backgroundColor: '#f2c811', borderRadius: 3 },
+        { label: 'Profit', data: p.map(x => x.Profit), backgroundColor: '#00c49a', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } } },
+      scales: {
+        x: { ticks: { color:'#8892a4', font:{size:10}, callback: v => '$'+(v/1000).toFixed(0)+'K' }, grid:{color:'rgba(255,255,255,.04)'} },
+        y: { ticks: { color:'#8892a4', font:{size:11} }, grid:{color:'rgba(255,255,255,.04)'} }
+      }
+    }
+  });
+}
+
+/* ─── Regions ─── */
+function buildRegions() {
+  const maxRev = REGIONS[0].Revenue;
+  const colors = ['#f2c811','#00b4d8','#00c49a','#f77f00','#a855f7','#e11d48'];
+  document.getElementById('regionBars').innerHTML = REGIONS.map((r,i) => `
+    <div class="rbar-row">
+      <div class="rbar-label"><span>${r.State}</span><span>${fmt(r.Revenue)}</span></div>
+      <div class="rbar-track"><div class="rbar-fill" style="width:${(r.Revenue/maxRev*100).toFixed(1)}%;background:${colors[i]};"></div></div>
+    </div>`).join('');
+}
+
+/* ─── Payment ─── */
+function buildPayment() {
+  const total = PAYMENT.reduce((s,p) => s + p.Revenue, 0);
+  const colors = ['#f2c811','#00b4d8','#00c49a','#f77f00','#a855f7'];
+  if (charts.pay) charts.pay.destroy();
+  charts.pay = new Chart(document.getElementById('payChart'), {
+    type: 'doughnut',
+    data: {
+      labels: PAYMENT.map(p => p.PaymentMode),
+      datasets: [{ data: PAYMENT.map(p => p.Revenue), backgroundColor: colors, borderWidth: 0, hoverOffset: 5 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${((c.raw/total)*100).toFixed(1)}%` } } }
+    }
+  });
+}
+
+/* ─── Quarterly Chart ─── */
+function buildQtr() {
+  const quarters = {};
+  RAW_MONTHLY.forEach(d => {
+    if (activeFilters.yr !== 'all' && !d.month.startsWith(activeFilters.yr)) return;
+    const [yr, mo] = d.month.split('-').map(Number);
+    const q = `${yr} Q${Math.ceil(mo/3)}`;
+    quarters[q] = (quarters[q] || 0) + d.Revenue;
+  });
+  const labels = Object.keys(quarters).slice(-12);
+  const vals = labels.map(k => quarters[k]);
+
+  if (charts.qtr) charts.qtr.destroy();
+  charts.qtr = new Chart(document.getElementById('qtrChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ label: 'Revenue', data: vals, backgroundColor: labels.map((_,i) => `hsl(${45 + i*15},85%,${55-i*1}%)`), borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ' ' + fmt(c.raw) } } },
+      scales: {
+        x: { ticks: { color:'#8892a4', font:{size:10}, autoSkip:false, maxRotation:45 }, grid:{color:'rgba(255,255,255,.04)'} },
+        y: { ticks: { color:'#8892a4', font:{size:10}, callback: v => '$'+(v/1000).toFixed(0)+'K' }, grid:{color:'rgba(255,255,255,.04)'} }
+      }
+    }
+  });
+}
+
+function renderAll() {
+  updateKPIs();
+  buildMonthly();
+  buildCat();
+  buildProducts();
+  buildRegions();
+  buildPayment();
+  buildQtr();
+}
+
+/* ─── Slicers ─── */
+document.querySelectorAll('.slicer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const f = btn.dataset.filter, v = btn.dataset.val;
+    activeFilters[f] = v;
+    document.querySelectorAll(`[data-filter="${f}"]`).forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    renderAll();
+  });
+});
+
+renderAll();
+</script>
+</body>
+</html>
