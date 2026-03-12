@@ -1,3 +1,21 @@
+# Sales Data Analysis Project
+
+## Objective
+Analyze company sales data to identify trends and improve decision making.
+
+## Tools
+- Python (Pandas)
+- Power BI
+- Excel
+
+## Key Insights
+- West region generated highest revenue
+- Electronics category has highest profit margin
+
+## Dashboard
+Power BI dashboard included in repository.
+
+
 # 📊 Sales Analytics & Dashboard Project
 
 A end-to-end sales data pipeline — from raw CSV cleaning to interactive visualizations and a Power BI-style dashboard — built entirely with Python and vanilla HTML/JS.
